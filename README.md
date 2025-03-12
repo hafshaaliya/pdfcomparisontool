@@ -18,6 +18,9 @@ Detailed summary statistics
 Screenshots
 ![Screenshot (23)](https://github.com/user-attachments/assets/b8a6b9b9-c03c-4dff-8177-b4a213c09ee0)
 ![Screenshot (24)](https://github.com/user-attachments/assets/13b48df6-7668-4604-977f-75e6611bde2d)
+![image](https://github.com/user-attachments/assets/befa8863-7a5f-4e16-b461-002892bed0b1)
+
+
 
 
 
