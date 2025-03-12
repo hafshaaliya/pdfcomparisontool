@@ -1,0 +1,210 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Comparison Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px 0;
+        }
+        .diff-added {
+            background-color: #e6ffed;
+            border-left: 4px solid #2cbe4e;
+            padding-left: 10px;
+        }
+        .diff-removed {
+            background-color: #ffeef0;
+            border-left: 4px solid #cb2431;
+            padding-left: 10px;
+        }
+        .diff-common {
+            padding-left: 14px;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #6c757d;
+        }
+        .page-only-notice {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #0dcaf0;
+        }
+        .similarity-high {
+            color: #2cbe4e;
+        }
+        .similarity-medium {
+            color: #f0ad4e;
+        }
+        .similarity-low {
+            color: #cb2431;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>PDF Comparison Results</h1>
+            <a href="/" class="btn btn-outline-primary">New Comparison</a>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                Summary
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h5>Similarity Score</h5>
+                            <h2 class="
+                                {% if results.similarity_score >= 80 %}similarity-high
+                                {% elif results.similarity_score >= 50 %}similarity-medium
+                                {% else %}similarity-low{% endif %}
+                            ">{{ "%.1f"|format(results.similarity_score) }}%</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h5>Page Count</h5>
+                            <p>PDF 1: {{ results.pdf1_pages }} pages<br>
+                               PDF 2: {{ results.pdf2_pages }} pages</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h5>Metadata Differences</h5>
+                            <p>{{ results.metadata_diff|length }} differences found</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Metadata Differences -->
+        {% if results.metadata_diff %}
+        <div class="card mb-4">
+            <div class="card-header">
+                Metadata Differences
+            </div>
+            <div class="card-body">
+                <table class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>PDF 1 Value</th>
+                            <th>PDF 2 Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for diff in results.metadata_diff %}
+                        <tr>
+                            <td>{{ diff.key }}</td>
+                            <td>{{ diff.pdf1_value if diff.pdf1_value is not none else "(not set)" }}</td>
+                            <td>{{ diff.pdf2_value if diff.pdf2_value is not none else "(not set)" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Page Comparisons -->
+        <div class="card">
+            <div class="card-header">
+                Page-by-Page Comparison
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-pills mb-3" id="pagesTabs" role="tablist">
+                    {% for page in results.page_comparisons %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {% if loop.index == 1 %}active{% endif %}" 
+                                id="page-{{ page.page_number }}-tab" 
+                                data-bs-toggle="pill" 
+                                data-bs-target="#page-{{ page.page_number }}" 
+                                type="button" 
+                                role="tab">
+                            Page {{ page.page_number }}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                
+                <div class="tab-content" id="pagesTabsContent">
+                    {% for page in results.page_comparisons %}
+                    <div class="tab-pane fade {% if loop.index == 1 %}show active{% endif %}" 
+                         id="page-{{ page.page_number }}" 
+                         role="tabpanel">
+                        
+                        {% if page.differences|selectattr('type', 'eq', 'page_only_in_pdf1')|list %}
+                            <div class="page-only-notice">
+                                <strong>Note:</strong> This page exists only in PDF 1.
+                            </div>
+                        {% elif page.differences|selectattr('type', 'eq', 'page_only_in_pdf2')|list %}
+                            <div class="page-only-notice">
+                                <strong>Note:</strong> This page exists only in PDF 2.
+                            </div>
+                        {% endif %}
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input show-common-toggle" 
+                                           type="checkbox" 
+                                           id="showCommon{{ page.page_number }}" 
+                                           checked>
+                                    <label class="form-check-label" for="showCommon{{ page.page_number }}">
+                                        Show unchanged content
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="diff-container">
+                                    {% for diff in page.differences %}
+                                        {% if diff.type == 'common' %}
+                                            <div class="diff-line diff-common">{{ diff.content }}</div>
+                                        {% elif diff.type == 'added' %}
+                                            <div class="diff-line diff-added">+ {{ diff.content }}</div>
+                                        {% elif diff.type == 'removed' %}
+                                            <div class="diff-line diff-removed">- {{ diff.content }}</div>
+                                        {% elif diff.type in ['page_only_in_pdf1', 'page_only_in_pdf2'] %}
+                                            <div class="diff-line">{{ diff.content }}</div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle "Show unchanged content" toggles
+            const toggles = document.querySelectorAll('.show-common-toggle');
+            
+            toggles.forEach(toggle => {
+                toggle.addEventListener('change', function() {
+                    const tabPane = this.closest('.tab-pane');
+                    const commonLines = tabPane.querySelectorAll('.diff-common');
+                    
+                    if (this.checked) {
+                        commonLines.forEach(line => line.style.display = 'block');
+                    } else {
+                        commonLines.forEach(line => line.style.display = 'none');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+        
